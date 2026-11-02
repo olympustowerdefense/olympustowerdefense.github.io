@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ringo Planet</title>
+<meta name="description" content="Ringo Planet – a block puzzle on a round planet. Turn the planet, fill the rings, pop them and paint 16 worlds back to life. 200 levels.">
+<meta name="theme-color" content="#0b0f2c">
+<link rel="icon" href="img/icon.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta property="og:title" content="Ringo Planet">
+<meta property="og:description" content="Turn the planet, fill the rings, pop them! 200 levels across 16 worlds.">
+<meta property="og:image" content="https://olympustowerdefense.github.io/ringoplanet/img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f2c;--bg2:#141a46;--ink:#f3f4ff;--muted:#a9b0e0;--sun:#ffc24a;--sun2:#ff9a3c;--pink:#ff6fae;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.12)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden}
+.sky{position:fixed;inset:0;z-index:-1;background:
+ radial-gradient(1200px 600px at 80% -10%,rgba(124,92,255,.35),transparent 60%),
+ radial-gradient(900px 500px at -10% 30%,rgba(255,111,174,.18),transparent 60%),
+ radial-gradient(800px 600px at 60% 110%,rgba(64,170,255,.18),transparent 60%),var(--bg)}
+.sky:after{content:"";position:absolute;inset:0;background-image:
+ radial-gradient(1.2px 1.2px at 10% 20%,#fff,transparent),radial-gradient(1px 1px at 30% 70%,#fff,transparent),
+ radial-gradient(1.4px 1.4px at 55% 15%,#fff,transparent),radial-gradient(1px 1px at 75% 45%,#fff,transparent),
+ radial-gradient(1.2px 1.2px at 90% 80%,#fff,transparent),radial-gradient(1px 1px at 20% 90%,#fff,transparent),
+ radial-gradient(1px 1px at 45% 50%,#fff,transparent),radial-gradient(1.3px 1.3px at 65% 85%,#fff,transparent);
+ background-size:420px 420px;opacity:.55}
+a{color:var(--sun)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+nav .brand{display:flex;align-items:center;gap:10px;font:700 20px Fredoka,sans-serif;color:var(--ink);text-decoration:none}
+nav .brand img{width:36px;height:36px;border-radius:9px}
+.lang{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{font:800 13px Nunito,sans-serif;color:var(--muted);background:none;border:0;border-radius:999px;padding:6px 12px;cursor:pointer}
+.lang button[aria-pressed=true]{background:var(--sun);color:#2b1a00}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:36px 0 56px}
+.logo{width:min(440px,100%);height:auto;display:block;margin:0 0 6px -8px;filter:drop-shadow(0 10px 30px rgba(255,140,60,.35))}
+.hero h1{font:700 clamp(30px,4.5vw,46px)/1.12 Fredoka,sans-serif;margin:8px 0 14px}
+.hero p.lead{color:var(--muted);font-size:19px;margin:0 0 26px;max-width:520px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:10px;font:800 18px Nunito,sans-serif;text-decoration:none;border-radius:16px;padding:15px 26px;transition:transform .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn.play{background:linear-gradient(#ffd36e,var(--sun2));color:#2b1a00;box-shadow:inset 0 -4px 0 #c46a12,0 10px 30px rgba(255,154,60,.35)}
+.btn.store{background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:15px}
+.btn.store small{display:block;font-size:11px;color:var(--muted);font-weight:700;line-height:1}
+.facts{display:flex;gap:22px;margin-top:28px;flex-wrap:wrap}
+.facts div{font:700 15px Nunito;color:var(--muted)}
+.facts b{display:block;font:700 28px Fredoka,sans-serif;color:var(--ink)}
+.phone{position:relative;justify-self:center;width:min(330px,80vw)}
+.phone img{width:100%;display:block;border-radius:38px;border:8px solid #1d2358;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08)}
+.phone .badge{position:absolute;right:-18px;top:46px;width:96px;border-radius:22px;border:0;box-shadow:0 14px 34px rgba(0,0,0,.5);transform:rotate(8deg)}
+section{padding:46px 0}
+h2{font:700 clamp(26px,3.4vw,34px) Fredoka,sans-serif;text-align:center;margin:0 0 8px}
+.sub{color:var(--muted);text-align:center;margin:0 auto 30px;max-width:560px}
+.feat{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.feat .c{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}
+.feat .i{font-size:30px;line-height:1}
+.feat h3{font:700 19px Fredoka,sans-serif;margin:10px 0 4px}
+.feat p{margin:0;color:var(--muted);font-size:15px}
+.shots{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 4px 22px;-webkit-overflow-scrolling:touch}
+.shots figure{margin:0;flex:0 0 230px;scroll-snap-align:center;text-align:center}
+.shots img{width:100%;border-radius:26px;border:6px solid #1d2358;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.shots figcaption{font:700 14px Nunito;color:var(--muted);margin-top:8px}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;counter-reset:s}
+.how div{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px 20px 20px 66px;position:relative}
+.how div:before{counter-increment:s;content:counter(s);position:absolute;left:18px;top:18px;width:34px;height:34px;border-radius:50%;background:var(--sun);color:#2b1a00;font:700 18px/34px Fredoka;text-align:center}
+.how b{font:700 18px Fredoka,sans-serif}
+.how p{margin:4px 0 0;color:var(--muted);font-size:15px}
+.final{text-align:center;background:linear-gradient(135deg,rgba(255,194,74,.16),rgba(255,111,174,.14));border:1px solid var(--line);border-radius:28px;padding:40px 18px}
+footer{color:var(--muted);font-size:14px;text-align:center;padding:34px 0 50px}
+footer a{color:var(--muted)}
+@media (max-width:860px){.hero{grid-template-columns:1fr;text-align:center;padding-top:16px}.logo{margin:0 auto 6px}.hero p.lead{margin-left:auto;margin-right:auto}.cta,.facts{justify-content:center}.feat{grid-template-columns:1fr 1fr}.how{grid-template-columns:1fr}.phone .badge{right:-6px;width:78px}}
+@media (max-width:480px){.feat{grid-template-columns:1fr}.shots figure{flex-basis:72vw}.btn{width:100%;justify-content:center}}
+[data-l]{display:none}
+html[lang=tr] [data-l=tr],html[lang=en] [data-l=en]{display:revert}
+</style>
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+<div class="wrap">
+<nav>
+  <a class="brand" href="./"><img src="img/icon.png" alt="">Ringo Planet</a>
+  <div class="lang" role="group" aria-label="Language"><button data-set="tr">TR</button><button data-set="en">EN</button></div>
+</nav>
+
+<header class="hero">
+  <div>
+    <img class="logo" src="img/logo.png" alt="Ringo Planet">
+    <h1><span data-l="en">Turn the planet. Fill the rings. Pop!</span><span data-l="tr">Gezegeni çevir. Halkaları doldur. Patlat!</span></h1>
+    <p class="lead"><span data-l="en">A block puzzle on a round world. Blocks fall toward the planet, you spin it to slot every piece into the gaps, and each full ring pops and paints the planet back to life.</span><span data-l="tr">Yuvarlak bir dünyada blok bulmacası. Parçalar gezegene doğru düşer, sen gezegeni çevirip her parçayı boşluklara oturtursun; dolan her halka patlar ve gezegeni yeniden boyar.</span></p>
+    <div class="cta">
+      <a class="btn play" href="oyna/">▶ <span data-l="en">Play free in your browser</span><span data-l="tr">Tarayıcıda ücretsiz oyna</span></a>
+      <span class="btn store" aria-disabled="true"> <span><small><span data-l="en">Coming soon to the</span><span data-l="tr">Yakında</span></small>App Store · iPhone &amp; iPad</span></span>
+    </div>
+    <div class="facts">
+      <div><b>200</b><span data-l="en">levels</span><span data-l="tr">bölüm</span></div>
+      <div><b>16</b><span data-l="en">worlds</span><span data-l="tr">dünya</span></div>
+      <div><b>∞</b><span data-l="en">endless mode</span><span data-l="tr">sonsuz mod</span></div>
+      <div><b>8</b><span data-l="en">languages</span><span data-l="tr">dil</span></div>
+    </div>
+  </div>
+  <div class="phone">
+    <img src="img/play.webp" width="520" height="1125" alt="Ringo Planet gameplay">
+    <img class="badge" src="img/icon.png" alt="">
+  </div>
+</header>
+
+<section>
+  <h2><span data-l="en">How to play</span><span data-l="tr">Nasıl oynanır</span></h2>
+  <p class="sub"><span data-l="en">Learn it in a minute. The first three levels teach every button and power-up.</span><span data-l="tr">Bir dakikada öğrenilir. İlk üç bölüm her tuşu ve her özel gücü oynatarak öğretir.</span></p>
+  <div class="how">
+    <div><b data-l="en">Spin the planet</b><b data-l="tr">Gezegeni çevir</b><p data-l="en">You turn the world, not the piece. Line up a gap under the falling block.</p><p data-l="tr">Parçayı değil dünyayı çevirirsin. Düşen bloğun altına bir boşluk getir.</p></div>
+    <div><b data-l="en">Fill every gap</b><b data-l="tr">Boşlukları doldur</b><p data-l="en">When a ring has no holes left it pops, and everything outside slides one step in.</p><p data-l="tr">Bir halkada boşluk kalmayınca patlar, dışındaki her şey bir kat içeri kayar.</p></div>
+    <div><b data-l="en">Earn three stars</b><b data-l="tr">Üç yıldız topla</b><p data-l="en">Use fewer pieces for more stars, open star chests and travel to the next world.</p><p data-l="tr">Daha az parçayla daha çok yıldız al, yıldız sandıklarını aç ve sonraki dünyaya geç.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2><span data-l="en">Screenshots</span><span data-l="tr">Ekran görüntüleri</span></h2>
+  <p class="sub"><span data-l="en">Swipe to see more.</span><span data-l="tr">Kaydırarak hepsini gör.</span></p>
+  <div class="shots">
+    <figure><img src="img/home.webp" loading="lazy" width="520" height="1125" alt=""><figcaption><span data-l="en">16 worlds to rebuild</span><span data-l="tr">Yeniden kurulacak 16 dünya</span></figcaption></figure>
+    <figure><img src="img/play.webp" loading="lazy" width="520" height="1125" alt=""><figcaption><span data-l="en">Pop rings, chain combos</span><span data-l="tr">Halka patlat, kombo yap</span></figcaption></figure>
+    <figure><img src="img/powers.webp" loading="lazy" width="520" height="1125" alt=""><figcaption><span data-l="en">Stardust, hammer and bomb</span><span data-l="tr">Yıldız tozu, çekiç ve bomba</span></figcaption></figure>
+    <figure><img src="img/win.webp" loading="lazy" width="520" height="1125" alt=""><figcaption><span data-l="en">Three stars, every level</span><span data-l="tr">Her bölümde üç yıldız</span></figcaption></figure>
+    <figure><img src="img/map.webp" loading="lazy" width="520" height="1125" alt=""><figcaption><span data-l="en">200 handcrafted levels</span><span data-l="tr">200 özenle hazırlanmış bölüm</span></figcaption></figure>
+  </div>
+</section>
+
+<section>
+  <h2><span data-l="en">Why you'll love it</span><span data-l="tr">Neden seveceksin</span></h2>
+  <p class="sub"><span data-l="en">Cozy to start, clever to master.</span><span data-l="tr">Başlaması rahat, ustalaşması zekâ ister.</span></p>
+  <div class="feat">
+    <div class="c"><div class="i">🪐</div><h3 data-l="en">A fresh twist</h3><h3 data-l="tr">Yepyeni bir fikir</h3><p data-l="en">Falling blocks meet a spinning planet. Easy to read, surprisingly deep.</p><p data-l="tr">Düşen bloklar dönen bir gezegenle buluşuyor. Anlaşılması kolay, derinliği şaşırtıcı.</p></div>
+    <div class="c"><div class="i">✦</div><h3 data-l="en">Power-ups</h3><h3 data-l="tr">Özel güçler</h3><p data-l="en">Stardust fills hidden gaps, the hammer fixes mistakes, the bomb clears a crowd.</p><p data-l="tr">Yıldız tozu gizli boşluğu doldurur, çekiç hatayı düzeltir, bomba kalabalığı temizler.</p></div>
+    <div class="c"><div class="i">🔥</div><h3 data-l="en">Daily rewards</h3><h3 data-l="tr">Günlük ödüller</h3><p data-l="en">Daily chain, win streaks, star chests and surprise golden blocks.</p><p data-l="tr">Günlük zincir, galibiyet serisi, yıldız sandıkları ve sürpriz altın bloklar.</p></div>
+    <div class="c"><div class="i">🏆</div><h3 data-l="en">Endless &amp; ranks</h3><h3 data-l="tr">Sonsuz mod ve sıralama</h3><p data-l="en">A big endless field, Game Center leaderboards and achievements.</p><p data-l="tr">Geniş sonsuz alan, Game Center sıralamaları ve başarımlar.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="final">
+    <h2><span data-l="en">Ready for the first ring?</span><span data-l="tr">İlk halkaya hazır mısın?</span></h2>
+    <p class="sub"><span data-l="en">No download needed. Your progress is saved in this browser.</span><span data-l="tr">İndirmek gerekmiyor. İlerlemen bu tarayıcıda saklanır.</span></p>
+    <a class="btn play" href="oyna/">▶ <span data-l="en">Play now</span><span data-l="tr">Hemen oyna</span></a>
+  </div>
+</section>
+
+<footer>
+  <p><a href="privacy.html"><span data-l="en">Privacy policy</span><span data-l="tr">Gizlilik politikası</span></a> · <a href="privacy.html#support"><span data-l="en">Support</span><span data-l="tr">Destek</span></a> · <a href="mailto:olympustowerdefense@gmail.com">olympustowerdefense@gmail.com</a></p>
+  <p>© 2026 Sercan Şen</p>
+</footer>
+</div>
+<script>
+(function(){
+  var pick;
+  try{pick=localStorage.getItem('rp_site_lang')}catch(e){}
+  if(!pick){pick=(navigator.language||'en').toLowerCase().indexOf('tr')===0?'tr':'en'}
+  function set(l){document.documentElement.lang=l;document.querySelectorAll('.lang button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.set===l)});try{localStorage.setItem('rp_site_lang',l)}catch(e){}}
+  document.querySelectorAll('.lang button').forEach(function(b){b.onclick=function(){set(b.dataset.set)}});
+  set(pick);
+})();
+</script>
+</body>
+</html>
