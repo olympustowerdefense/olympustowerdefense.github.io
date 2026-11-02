@@ -751,16 +751,15 @@ const CFG={
   admobInter:'ca-app-pub-7012973955502439/3073727103',
   admobReward:'ca-app-pub-7012973955502439/9447563761',
   adTesting:true,
-  rcKey:'appl_BURAYA_REVENUECAT_API_ANAHTARI',
   lbStars:'pp_total_stars'
 };
 const CAP=window.Capacitor, NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform());
 // iOS uygulamasında www/capacitor.js yüklenir; eklentiler registerPlugin ile bağlanır
 const REG=window.capacitorExports&&window.capacitorExports.registerPlugin;
-const PL=NATIVE&&REG?{Haptics:REG('Haptics'),AdMob:REG('AdMob'),Purchases:REG('Purchases'),PlanetPop:REG('PlanetPop')}:{};
+const PL=NATIVE&&REG?{Haptics:REG('Haptics'),AdMob:REG('AdMob'),Purchases:REG('NativePurchases'),PlanetPop:REG('PlanetPop')}:{};
 const IAP_IDS=['pp_noads','pp_starter','pp_coins_s','pp_coins_m','pp_coins_l'];
 let PRICES={pp_noads:'$2.99',pp_starter:'$4.99',pp_coins_s:'$1.99',pp_coins_m:'$4.99',pp_coins_l:'$9.99'};
-let RC_PRODUCTS={}, gcName='';
+let STORE_PRODUCTS={}, gcName='';
 const NB={
   haptic(kind){
     if(prog.hap===false) return;
@@ -791,28 +790,29 @@ const NB={
   },
   async buy(id){
     if(NATIVE&&PL.Purchases){
-      const before=new Set(((lastCI&&lastCI.nonSubscriptionTransactions)||[]).map(t=>t.transactionIdentifier));
-      if(!RC_PRODUCTS[id]) await loadProducts();
-      const p=RC_PRODUCTS[id];
-      if(!p){toast(L('App Store\'a ulaşılamadı','Could not reach the App Store'),L('İnternet bağlantını kontrol et','Check your connection'));return null}
-      try{const r=await PL.Purchases.purchaseStoreProduct({product:p});
-        const ci=r&&r.customerInfo; if(ci) lastCI=ci;
-        const fresh=((ci&&ci.nonSubscriptionTransactions)||[]).filter(t=>t.productIdentifier===id&&!before.has(t.transactionIdentifier)).sort((a,b)=>Date.parse(a.purchaseDate||0)-Date.parse(b.purchaseDate||0));
-        if(fresh.length) return {tx:fresh[fresh.length-1].transactionIdentifier}; // dinleyici önce verdiyse grantIAP tekrar vermez
-        if(!prog.unmatched) prog.unmatched={}; (prog.unmatched[id]=prog.unmatched[id]||[]).push(Date.now()-120000);
-        return {tx:'store:'+((r&&r.transaction&&r.transaction.transactionIdentifier)||Date.now())}}
-      catch(e){const c=e&&(e.userCancelled||String(e.code)==='1'||/cancel/i.test(e.message||''));if(!c)toast(L('Satın alma tamamlanmadı','Purchase not completed'),L('Ödeme alınmadıysa ücret kesilmez','You are not charged if it did not go through'));return null}
+      if(!STORE_PRODUCTS[id]) await loadProducts();
+      if(!STORE_PRODUCTS[id]){toast(L('App Store\'a ulaşılamadı','Could not reach the App Store'),L('İnternet bağlantını kontrol et','Check your connection'));return null}
+      try{const t=await PL.Purchases.purchaseProduct({productIdentifier:id,productType:'inapp',quantity:1,isConsumable:false,autoAcknowledgePurchases:false});
+        const tx=t&&t.transactionId!=null?String(t.transactionId):'';
+        if(!tx){toast(L('Satın alma onay bekliyor','Purchase is pending'),L('Onaylanınca otomatik eklenir','It is added automatically once approved'));return null}
+        grantIAP(id,tx); await finishTx(tx); return {tx}}
+      catch(e){const m=String((e&&e.message)||'')+' '+String((e&&e.code)||'');
+        if(/cancel/i.test(m)||(e&&e.userCancelled)) return null;
+        if(/pending|deferred/i.test(m)){toast(L('Satın alma onay bekliyor','Purchase is pending'),L('Onaylanınca otomatik eklenir','It is added automatically once approved'));return null}
+        toast(L('Satın alma tamamlanmadı','Purchase not completed'),L('Ödeme alınmadıysa ücret kesilmez','You are not charged if it did not go through'));return null}
     }
     if(NATIVE){toast(L('App Store\'a ulaşılamadı','Could not reach the App Store'),'');return null}
     return (await fakeBuy(id))?{tx:'web'+Date.now()}:null;
   },
   async restore(){
-    if(NATIVE&&PL.Purchases){try{const r=await PL.Purchases.restorePurchases();const tx=(r.customerInfo&&r.customerInfo.nonSubscriptionTransactions)||[];return tx.map(t=>t.productIdentifier)}catch(e){return null}}
+    if(NATIVE&&PL.Purchases){try{try{await PL.Purchases.restorePurchases()}catch(e){}
+      const g=await PL.Purchases.getPurchases({productType:'inapp',onlyCurrentEntitlements:true});
+      return ((g&&g.purchases)||[]).filter(t=>t&&!t.revocationDate).map(t=>t.productIdentifier)}catch(e){return null}}
     return [];
   },
   lbReport(nick){try{if(NATIVE&&PL.PlanetPop)PL.PlanetPop.lbReport({nick})}catch(e){}}
 };
-let adsReady=false, rcReady=false, lastCI=null, adBusy=false;
+let adsReady=false, storeReady=false, adBusy=false;
 // reklam: ödül ancak reklam kapanınca verilir; reklam açılmazsa ya da takılırsa oyun kilitlenmez
 function adRun(rewarded){return new Promise(async res=>{
   const A=PL.AdMob, hs=[]; let got=false, shown=false, fin=false;
@@ -831,31 +831,36 @@ function adRun(rewarded){return new Promise(async res=>{
   }catch(e){finish(false)}
 })}
 async function loadProducts(){
-  if(!PL.Purchases||!rcReady) return;
-  try{const r=await PL.Purchases.getProducts({productIdentifiers:IAP_IDS,type:'NON_SUBSCRIPTION'});(r.products||[]).forEach(q=>{RC_PRODUCTS[q.identifier]=q;PRICES[q.identifier]=q.priceString})}catch(e){}
+  if(!PL.Purchases||!storeReady) return;
+  try{const r=await PL.Purchases.getProducts({productIdentifiers:IAP_IDS,productType:'inapp'});((r&&r.products)||[]).forEach(q=>{STORE_PRODUCTS[q.identifier]=q;if(q.priceString)PRICES[q.identifier]=q.priceString})}catch(e){}
 }
-// bekleyen / yarıda kalmış satın alımlar (ör. aile onayı) sonradan gelince verilir
-function reconcile(ci){
-  if(ci) lastCI=ci;
-  const tx=(ci&&ci.nonSubscriptionTransactions)||[]; let n=0;
-  tx.forEach(t=>{const id=t.transactionIdentifier, age=Date.now()-Date.parse(t.purchaseDate||0);
-    if(!id||(prog.tx&&prog.tx[id]!=null)) return;
-    // satın alma anında kimliği eşleşmeyen alım: zaten verildi, sadece işaretle
-    const um=prog.unmatched&&prog.unmatched[t.productIdentifier];
-    if(Array.isArray(um)&&um.length){const pd=Date.parse(t.purchaseDate||0),k=um.findIndex(ts=>pd>=ts);if(k>=0){um.splice(k,1);if(!prog.tx)prog.tx={};prog.tx[id]=0;saveProg();return}}
-    if(t.productIdentifier==='pp_noads'||t.productIdentifier==='pp_starter'||age<3*864e5){if(grantIAP(t.productIdentifier,id))n++}
-  });
+// App Store işlemi: önce ürün verilir (her işlem kimliği bir kez), sonra Apple'a "tamamlandı" denir.
+// Uygulama ödeme sırasında kapanırsa veya aile onayı sonradan gelirse bir sonraki açılışta verilir.
+async function finishTx(tx){try{if(PL.Purchases&&tx)await PL.Purchases.finishTransaction({transactionId:String(tx)})}catch(e){}}
+async function handleTx(list){
+  let n=0;
+  for(const t of (list||[])){
+    if(!t||!t.productIdentifier||t.transactionId==null) continue;
+    const tx=String(t.transactionId);
+    if(!t.revocationDate&&IAP_IDS.includes(t.productIdentifier)&&grantIAP(t.productIdentifier,tx)) n++;
+    await finishTx(tx);
+  }
   if(n){S.coin();toast('✓',L('Satın alımın hesabına eklendi','Your purchase was added'));refreshStart();updateHUD();if(!$('shopOv').hidden)renderShop()}
 }
+async function storeSync(){
+  if(!PL.Purchases||!storeReady) return;
+  try{const u=await PL.Purchases.getUnfinishedTransactions();await handleTx((u&&u.transactions)||[])}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&NATIVE)storeSync()});
 async function nativeInit(){
   if(!NATIVE) return;
   try{if(PL.PlanetPop) PL.PlanetPop.addListener('cloudChanged',()=>cloudSync())}catch(e){}
   cloudSync();
   try{if(PL.Purchases){
-    await PL.Purchases.configure({apiKey:CFG.rcKey}); rcReady=true;
-    await loadProducts();
-    PL.Purchases.addCustomerInfoUpdateListener(ci=>reconcile(ci));
-    const c=await PL.Purchases.getCustomerInfo(); lastCI=c&&c.customerInfo; reconcile(lastCI);
+    try{await PL.Purchases.configure({autoFinishTransactions:false})}catch(e){}
+    storeReady=true;
+    try{PL.Purchases.addListener('transactionUpdated',t=>handleTx([t]))}catch(e){}
+    await loadProducts(); await storeSync();
   }}catch(e){}
   try{const g=await NB.gcLogin(); if(g&&g.ok) gcName=g.alias||''}catch(e){}
   // izin pencereleri uygulama ekranda ve etkinken sorulur
@@ -2214,13 +2219,13 @@ const PRIV_TR=`<p><b>Ringo Planet</b> sana hesap açtırmaz; adını, e-postanı
 <p><b>İlerleme:</b> Bölümlerin, altınların ve ayarların bu cihazda ve kendi iCloud hesabında saklanır. Bu verileri biz göremeyiz.</p>
 <p><b>Sıralama:</b> Seçtiğin takma ad, yıldız sayın ve sonsuz mod rekorun Apple iCloud (CloudKit) üzerinden diğer oyunculara gösterilir. Kötü bir takma adı ⚑ ile bildirebilirsin. Game Center kullanırsan Apple'ın kuralları geçerlidir.</p>
 <p><b>Reklamlar:</b> Reklamları Google AdMob gösterir. Kişiselleştirilmiş reklam için iPhone senden izin ister; izin vermezsen yalnızca genel reklamlar görürsün. Google'ın gizlilik politikası: policies.google.com/privacy</p>
-<p><b>Satın alımlar:</b> Ödemeler Apple üzerinden yapılır; kart bilgilerin bize ulaşmaz. Satın alımların RevenueCat ile doğrulanır.</p>
+<p><b>Satın alımlar:</b> Ödemeler Apple üzerinden yapılır; kart bilgilerin bize ulaşmaz. Satın alımlar doğrudan App Store tarafından doğrulanır.</p>
 <p><b>Silme:</b> Ayarlar → İlerlemeyi sıfırla bölümlerini ve yıldızlarını sıfırlar; satın aldıkların korunur. Takma adını ve sıralama kaydını tamamen sildirmek için App Store sayfasındaki iletişim adresine yaz.</p>`;
 const PRIV_EN=`<p><b>Ringo Planet</b> does not ask you to create an account and does not collect your name, email or location.</p>
 <p><b>Progress:</b> Your levels, coins and settings are stored on this device and in your own iCloud account. We cannot see this data.</p>
 <p><b>Leaderboard:</b> The nickname you choose, your star count and your endless record are shown to other players through Apple iCloud (CloudKit). You can report an offensive nickname with ⚑. If you use Game Center, Apple's terms apply.</p>
 <p><b>Ads:</b> Ads are served by Google AdMob. Your iPhone asks for permission before personalized ads; if you decline you only see general ads. Google's privacy policy: policies.google.com/privacy</p>
-<p><b>Purchases:</b> Payments go through Apple; your card details never reach us. Purchases are verified with RevenueCat.</p>
+<p><b>Purchases:</b> Payments go through Apple; your card details never reach us. Purchases are verified directly by the App Store.</p>
 <p><b>Deleting:</b> Settings → Reset progress clears your levels and stars; your purchases are kept. To have your nickname and leaderboard entry fully deleted, write to the contact address on the App Store page.</p>`;
 // yedek kodu: telefon değişse de ilerleme taşınabilir
 function importProgress(d){
