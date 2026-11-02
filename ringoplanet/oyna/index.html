@@ -760,6 +760,10 @@ const PL=NATIVE&&REG?{Haptics:REG('Haptics'),AdMob:REG('AdMob'),Purchases:REG('N
 const IAP_IDS=['pp_noads','pp_starter','pp_coins_s','pp_coins_m','pp_coins_l'];
 let PRICES={pp_noads:'$2.99',pp_starter:'$4.99',pp_coins_s:'$1.99',pp_coins_m:'$4.99',pp_coins_l:'$9.99'};
 let STORE_PRODUCTS={}, gcName='';
+const JSERR={n:0,seen:{}};
+function reportErr(msg,stack,src){try{const k=String(msg).slice(0,120);JSERR.seen[k]=(JSERR.seen[k]||0)+1;if(JSERR.seen[k]>3||++JSERR.n>20)return;NB.jserr(msg,stack,src)}catch(e){}}
+window.addEventListener('error',e=>reportErr(e.message||'error',(e.error&&e.error.stack)||'',(e.filename||'')+':'+(e.lineno||0)+':'+(e.colno||0)));
+window.addEventListener('unhandledrejection',e=>{const r=e.reason;reportErr((r&&r.message)||String(r),(r&&r.stack)||'','promise')});
 const NB={
   haptic(kind){
     if(prog.hap===false) return;
@@ -782,11 +786,11 @@ const NB={
   async lbTop(sort){try{if(NATIVE&&PL.PlanetPop){const r=await PL.PlanetPop.lbTop({limit:50,sort:sort||'stars'});return r&&r.entries||[]}}catch(e){return []}return null},
   async adInterstitial(){
     if(adBusy) return false; adBusy=true;
-    try{ if(NATIVE&&PL.AdMob){if(!adsReady)return false;return await adRun(false)} if(NATIVE) return false; return await fakeAd(false) } finally{adBusy=false}
+    try{ if(NATIVE&&PL.AdMob){if(!adsReady)return false;const ok=await adRun(false);if(ok)NB.ev('ad_watched',{type:'interstitial'});return ok} if(NATIVE) return false; return await fakeAd(false) } finally{adBusy=false}
   },
   async adRewarded(){
     if(adBusy) return false; adBusy=true;
-    try{ if(NATIVE&&PL.AdMob){const ok=adsReady&&await adRun(true);if(!ok)toast(L('Şu an reklam yok','No ad available right now'),L('Biraz sonra tekrar dene','Please try again in a moment'));return ok} if(NATIVE){toast(L('Şu an reklam yok','No ad available right now'),'');return false} return await fakeAd(true) } finally{adBusy=false}
+    try{ if(NATIVE&&PL.AdMob){const ok=adsReady&&await adRun(true);if(ok)NB.ev('ad_watched',{type:'rewarded'});if(!ok)toast(L('Şu an reklam yok','No ad available right now'),L('Biraz sonra tekrar dene','Please try again in a moment'));return ok} if(NATIVE){toast(L('Şu an reklam yok','No ad available right now'),'');return false} return await fakeAd(true) } finally{adBusy=false}
   },
   async buy(id){
     if(NATIVE&&PL.Purchases){
@@ -810,7 +814,10 @@ const NB={
       return ((g&&g.purchases)||[]).filter(t=>t&&!t.revocationDate).map(t=>t.productIdentifier)}catch(e){return null}}
     return [];
   },
-  lbReport(nick){try{if(NATIVE&&PL.PlanetPop)PL.PlanetPop.lbReport({nick})}catch(e){}}
+  lbReport(nick){try{if(NATIVE&&PL.PlanetPop)PL.PlanetPop.lbReport({nick})}catch(e){}},
+  // Firebase: oyun olayı (Analytics) ve oyun kodu hatası (Crashlytics, çökme olmayan hata)
+  ev(name,params){try{if(NATIVE&&PL.PlanetPop&&PL.PlanetPop.logEvent)PL.PlanetPop.logEvent({name,params:params||{}})}catch(e){}},
+  jserr(msg,stack,src){try{if(NATIVE&&PL.PlanetPop&&PL.PlanetPop.jserr)PL.PlanetPop.jserr({msg:String(msg||'').slice(0,500),stack:String(stack||'').slice(0,3000),src:String(src||'')})}catch(e){}}
 };
 let adsReady=false, storeReady=false, adBusy=false;
 // reklam: ödül ancak reklam kapanınca verilir; reklam açılmazsa ya da takılırsa oyun kilitlenmez
@@ -953,7 +960,7 @@ function coachDone(){
   hideCoach(); S.clean(4);
   const Q=SEQ||TUT;
   if(tutIdx>=0&&tutIdx<Q.length-1){tutIdx++;setTimeout(()=>{if(running&&tutIdx>=0)showCoach(Q[tutIdx])},250);return}
-  if(tutIdx>=0&&tutIdx===Q.length-1){tutIdx=-1;if(Q===TUT)prog.tut=true;else{prog.tips[Q.key]=1;if(Q.key==='l3')prog.tips.boost=1}SEQ=null;saveProg();
+  if(tutIdx>=0&&tutIdx===Q.length-1){tutIdx=-1;if(Q===TUT){prog.tut=true;NB.ev('tutorial_complete',{})}else{prog.tips[Q.key]=1;if(Q.key==='l3')prog.tips.boost=1;NB.ev('power_learned',{lesson:Q.key,powers:Q.key==='l2'?'stardust,hammer':'bomb'})}SEQ=null;saveProg();
     if(running&&inLevel&&phase==='play'&&done>=Wd.target){levelComplete();return}}
   if(queueCoach.length) setTimeout(()=>{if(!coach&&running)showCoach(queueCoach.shift())},250);
 }
@@ -1234,6 +1241,7 @@ function levelComplete(){
   const left=Wd.limit?Math.max(0,Wd.limit-used):0;
   const bonus=dust*100+left*40+(Wd.fin?500:0); score+=bonus; updateHUD();
   const n=Wd.lv, stars=liveStars();
+  NB.ev('level_end',Object.assign(lvParams(),{result:'win',seconds:Math.round((Date.now()-levelT0)/1000),percent:100,stars,pieces:used,continues:contUsed}));
   if(!prog.paid) prog.paid={}; const firstClear=!prog.st[n]&&!prog.paid[n]; if(!tutorial) prog.paid[n]=1;
   lastWinCoins=tutorial?(tutReplay?0:30):firstClear?(20+10*stars+(Wd.fin?100:0))*(Wd.hard?2:1):10;
   prog.coins=(prog.coins||0)+lastWinCoins;
@@ -1291,6 +1299,7 @@ function gameOver(why){
   setTimeout(()=>{if(phase==='over')$('overOv').hidden=false},700);
 }
 function finalFail(){
+  if(inLevel) NB.ev('level_end',Object.assign(lvParams(),{result:'lose',seconds:Math.round((Date.now()-levelT0)/1000),percent:Wd.endless?0:Math.round(Math.min(1,done/Math.max(1,Wd.target))*100),score:Wd.endless?score:0,pieces:used,continues:contUsed}));
   clearPend(); lostStreak=0; if(!Wd.endless&&!tutorial&&inLevel) breakStreak();
   if(inLevel&&!tutorial&&!Wd.endless) loseLife();
   if(Wd.endless&&inLevel) endlessOver();
@@ -1831,8 +1840,11 @@ function endlessOver(){
   inLevel=false;
 }
 function endlessQuit(){if(inLevel&&Wd.endless&&score>(prog.endBest||0)){prog.endBest=score;NB.gcScore('pp_endless',score);saveProg();NB.lbSubmit(prog.nick,totalStars(),Math.min(prog.unl,TOTAL))}}
+let levelT0=0;
+function lvParams(){return Wd.endless?{mode:'endless',world:Wd.p|0}:{level:Wd.lv,world:Wd.p|0,hard:Wd.hard?1:0,tutorial:tutorial?1:0}}
 function goLevel(){
   $('introOv').hidden=true; running=true; phase='play'; inLevel=true; last=performance.now(); musicKey(Wd.p); updateHUD();
+  levelT0=Date.now(); NB.ev('level_start',lvParams());
   const ls=lessonFor();
   if(tutorial){SEQ=null;tutIdx=0;showCoach(TUT[0])}
   else if(ls){SEQ=LES[ls];SEQ.key=ls;tutIdx=0;showCoach(SEQ[0])}
@@ -1933,7 +1945,7 @@ function streakBonus(){const k=prog.wstreak||0, b={d:k>=2?1:0,h:k>=4?1:0,b:k>=6?
 function breakStreak(){if((prog.wstreak||0)>0){lostStreak=prog.wstreak;prog.wstreak=0;saveProg()}}
 let lvHam=0, lvBomb=0, lostStreak=0, tutReplay=false;
 function clearPend(){if(prog.pend){prog.pend=0;saveProg()}}
-function leaveLevel(){clearPend();if(inLevel&&!tutorial&&!Wd.endless&&used>0){breakStreak();loseLife();toast('−1 ❤','')} inLevel=false; hammerMode=false}
+function leaveLevel(){if(inLevel&&phase==='play')NB.ev('level_end',Object.assign(lvParams(),{result:'quit',seconds:Math.round((Date.now()-levelT0)/1000),percent:Wd.endless?0:Math.round(Math.min(1,done/Math.max(1,Wd.target))*100)}));clearPend();if(inLevel&&!tutorial&&!Wd.endless&&used>0){breakStreak();loseLife();toast('−1 ❤','')} inLevel=false; hammerMode=false}
 function fmtMs(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function updateLivesUI(){
   const before=prog.lives; tickLives(); if(prog.lives!==before) saveProg();
@@ -2006,7 +2018,7 @@ function grantIAP(id,tx){
 let buying=false;
 async function buyIAP(id){
   if(buying) return; buying=true;
-  try{const r=await NB.buy(id); if(r){grantIAP(id,r.tx);S.coin();NB.haptic('success');toast('✓ '+iapName(id),L('Teşekkürler!','Thank you!'));renderShop();refreshStart();updateHUD()}}
+  try{const r=await NB.buy(id); if(r){grantIAP(id,r.tx);NB.ev('iap_purchase',{product:id});S.coin();NB.haptic('success');toast('✓ '+iapName(id),L('Teşekkürler!','Thank you!'));renderShop();refreshStart();updateHUD()}}
   finally{buying=false}
 }
 function boostName(k){return {dust:L('Yıldız Tozu','Stardust'),hammer:L('Çekiç','Hammer'),bomb:L('Bomba','Bomb')}[k]}
@@ -2219,12 +2231,14 @@ const PRIV_TR=`<p><b>Ringo Planet</b> sana hesap açtırmaz; adını, e-postanı
 <p><b>İlerleme:</b> Bölümlerin, altınların ve ayarların bu cihazda ve kendi iCloud hesabında saklanır. Bu verileri biz göremeyiz.</p>
 <p><b>Sıralama:</b> Seçtiğin takma ad, yıldız sayın ve sonsuz mod rekorun Apple iCloud (CloudKit) üzerinden diğer oyunculara gösterilir. Kötü bir takma adı ⚑ ile bildirebilirsin. Game Center kullanırsan Apple'ın kuralları geçerlidir.</p>
 <p><b>Reklamlar:</b> Reklamları Google AdMob gösterir. Kişiselleştirilmiş reklam için iPhone senden izin ister; izin vermezsen yalnızca genel reklamlar görürsün. Google'ın gizlilik politikası: policies.google.com/privacy</p>
+<p><b>Hata ve kullanım verisi:</b> Uygulama çökerse veya oyunda bir hata olursa Google Firebase Crashlytics'e anonim bir hata raporu gider. Firebase Analytics ile bölüm başlangıç/bitiş, satın alma ve reklam izleme gibi anonim oyun olaylarını oyunu iyileştirmek için sayarız; reklam kimliği kullanılmaz ve bu veriler seni takip etmek için kullanılmaz.</p>
 <p><b>Satın alımlar:</b> Ödemeler Apple üzerinden yapılır; kart bilgilerin bize ulaşmaz. Satın alımlar doğrudan App Store tarafından doğrulanır.</p>
 <p><b>Silme:</b> Ayarlar → İlerlemeyi sıfırla bölümlerini ve yıldızlarını sıfırlar; satın aldıkların korunur. Takma adını ve sıralama kaydını tamamen sildirmek için App Store sayfasındaki iletişim adresine yaz.</p>`;
 const PRIV_EN=`<p><b>Ringo Planet</b> does not ask you to create an account and does not collect your name, email or location.</p>
 <p><b>Progress:</b> Your levels, coins and settings are stored on this device and in your own iCloud account. We cannot see this data.</p>
 <p><b>Leaderboard:</b> The nickname you choose, your star count and your endless record are shown to other players through Apple iCloud (CloudKit). You can report an offensive nickname with ⚑. If you use Game Center, Apple's terms apply.</p>
 <p><b>Ads:</b> Ads are served by Google AdMob. Your iPhone asks for permission before personalized ads; if you decline you only see general ads. Google's privacy policy: policies.google.com/privacy</p>
+<p><b>Errors and usage:</b> If the app crashes or the game hits an error, an anonymous report goes to Google Firebase Crashlytics. With Firebase Analytics we count anonymous game events such as level start/end, purchases and ads watched to improve the game; no advertising identifier is used and this data is not used to track you.</p>
 <p><b>Purchases:</b> Payments go through Apple; your card details never reach us. Purchases are verified directly by the App Store.</p>
 <p><b>Deleting:</b> Settings → Reset progress clears your levels and stars; your purchases are kept. To have your nickname and leaderboard entry fully deleted, write to the contact address on the App Store page.</p>`;
 // yedek kodu: telefon değişse de ilerleme taşınabilir
