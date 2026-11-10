@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Ringo Planet ads</title></head><body style="font:16px system-ui;padding:20px">
+<p id="s">Hazırlanıyor…</p>
+<script>
+(async()=>{const s=document.getElementById('s');
+const names=(location.hash.slice(1)||'').split(',').filter(Boolean);
+const files=[];
+for(const n of names){const r=await fetch(n);const b=await r.blob();files.push(new File([b],n,{type:b.type||(n.endsWith('.html')?'text/html':'video/mp4')}));s.textContent=files.length+'/'+names.length}
+const t=window.opener||window.parent;
+if(t&&t!==window){t.postMessage({rpFiles:files},'*');s.textContent='Gönderildi: '+files.length+' dosya. Bu sekmeyi kapatabilirsin.'}else s.textContent='Bağlantı yok';
+})();
+</script></body></html>
